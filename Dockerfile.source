@@ -1,0 +1,23 @@
+# Builds the exporter from this source tree, with Docker log support.
+# The Dockerfile next to this one packages release binaries instead, and
+# those are built without Docker and systemd support.
+ARG golang_ver=alpine
+ARG alpine_ver=latest
+FROM golang:$golang_ver AS builder
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+
+ENV CGO_ENABLED=0
+RUN go test -tags nosystemd ./...
+RUN go build -tags nosystemd -o /postfix_exporter .
+
+
+FROM alpine:$alpine_ver
+
+COPY --from=builder /postfix_exporter /usr/local/bin/
+
+EXPOSE 9154
+ENTRYPOINT ["/usr/local/bin/postfix_exporter"]
